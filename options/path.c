@@ -72,7 +72,7 @@ static const char *mp_get_platform_path(void *talloc_ctx,
                                         struct mpv_global *global,
                                         const char *type)
 {
-    assert(talloc_ctx);
+    mp_assert(talloc_ctx);
 
     if (global->configdir) {
         // Return NULL for all platform paths if --no-config is passed
@@ -99,7 +99,7 @@ static const char *mp_get_platform_path(void *talloc_ctx,
     }
 
     if (fallback_type) {
-        assert(strcmp(fallback_type, type) != 0);
+        mp_assert(strcmp(fallback_type, type) != 0);
         return mp_get_platform_path(talloc_ctx, global, fallback_type);
     }
     return NULL;
@@ -215,9 +215,11 @@ char *mp_get_user_path(void *talloc_ctx, struct mpv_global *global,
             }
         }
     }
-    if (!res)
+    if (!res) {
         res = talloc_strdup(talloc_ctx, path);
-    MP_DBG(global, "user path: '%s' -> '%s'\n", path, res);
+    } else {
+        MP_DBG(global, "user path: '%s' -> '%s'\n", path, res);
+    }
     return res;
 }
 

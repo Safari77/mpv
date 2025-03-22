@@ -114,6 +114,8 @@ wchar_t *mp_from_utf8(void *talloc_ctx, const char *s)
         abort();
     wchar_t *ret = talloc_array(talloc_ctx, wchar_t, count);
     MultiByteToWideChar(CP_UTF8, 0, s, -1, ret, count);
+    if (count <= 0)
+        abort();
     return ret;
 }
 
@@ -124,6 +126,8 @@ char *mp_to_utf8(void *talloc_ctx, const wchar_t *s)
         abort();
     char *ret = talloc_array(talloc_ctx, char, count);
     WideCharToMultiByte(CP_UTF8, 0, s, -1, ret, count, NULL, NULL);
+    if (count <= 0)
+        abort();
     return ret;
 }
 
@@ -807,8 +811,8 @@ int msync(void *addr, size_t length, int flags)
 
 void *mmap(void *addr, size_t length, int prot, int flags, int fd, off_t offset)
 {
-    assert(addr == NULL); // not implemented
-    assert(flags == MAP_SHARED); // not implemented
+    mp_assert(addr == NULL); // not implemented
+    mp_assert(flags == MAP_SHARED); // not implemented
 
     HANDLE osf = (HANDLE)_get_osfhandle(fd);
     if (!osf) {

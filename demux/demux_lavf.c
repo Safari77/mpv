@@ -225,6 +225,7 @@ struct stream_info {
 typedef struct lavf_priv {
     struct stream *stream;
     bool own_stream;
+    bool is_dvd_bd;
     char *filename;
     struct format_hack format_hack;
     const AVInputFormat *avif;
@@ -332,9 +333,14 @@ static int64_t mp_seek(void *opaque, int64_t pos, int whence)
         return -1;
 
     int64_t current_pos = stream_tell(stream);
-    if (stream_seek(stream, pos) == 0) {
-        stream_seek(stream, current_pos);
-        return -1;
+    if (!priv->is_dvd_bd) {
+        if (stream_seek(stream, pos) == 0) {
+            stream_seek(stream, current_pos);
+            return -1;
+        }
+    } else {
+        stream_drop_buffers(stream);
+        stream->pos = current_pos;
     }
 
     return pos;
@@ -643,7 +649,7 @@ static void export_replaygain(demuxer_t *demuxer, struct sh_stream *sh,
 
     // This must be run only before the stream was added, otherwise there
     // will be race conditions with accesses from the user thread.
-    assert(!sh->ds);
+    mp_assert(!sh->ds);
     sh->codec->replaygain_data = rgain;
 }
 
@@ -808,7 +814,7 @@ static void handle_new_stream(demuxer_t *demuxer, int i)
         .last_key_pts = MP_NOPTS_VALUE,
         .highest_pts = MP_NOPTS_VALUE,
     };
-    assert(priv->num_streams == i); // directly mapped
+    mp_assert(priv->num_streams == i); // directly mapped
     MP_TARRAY_APPEND(priv, priv->streams, priv->num_streams, info);
 
     if (sh) {
@@ -1171,6 +1177,15 @@ static int demux_open_lavf(demuxer_t *demuxer, enum demux_check check)
         priv->stream = NULL;
     }
 
+    if (priv->stream) {
+        const char *sname = priv->stream->info->name;
+        priv->is_dvd_bd = strcmp(sname, "dvdnav") == 0 ||
+                          strcmp(sname, "ifo_dvdnav") == 0 ||
+                          strcmp(sname, "bd") == 0 ||
+                          strcmp(sname, "bdnav") == 0 ||
+                          strcmp(sname, "bdmv/bluray") == 0;
+    }
+
     return 0;
 
 fail:
@@ -1206,7 +1221,7 @@ static bool demux_lavf_read_packet(struct demuxer *demux,
     add_new_streams(demux);
     update_metadata(demux);
 
-    assert(pkt->stream_index >= 0 && pkt->stream_index < priv->num_streams);
+    mp_assert(pkt->stream_index >= 0 && pkt->stream_index < priv->num_streams);
     struct stream_info *info = priv->streams[pkt->stream_index];
     struct sh_stream *stream = info->sh;
     AVStream *st = priv->avfc->streams[pkt->stream_index];
@@ -1277,6 +1292,16 @@ static bool demux_lavf_read_packet(struct demuxer *demux,
 
     *mp_pkt = dp;
     return true;
+}
+
+static void demux_drop_buffers_lavf(demuxer_t *demuxer)
+{
+    lavf_priv_t *priv = demuxer->priv;
+    av_seek_frame(priv->avfc, -1, 0, 1);
+    demux_flush(demuxer);
+    stream_drop_buffers(priv->stream);
+    avio_flush(priv->avfc->pb);
+    avformat_flush(priv->avfc);
 }
 
 static void demux_seek_lavf(demuxer_t *demuxer, double seek_pts, int flags)
@@ -1409,6 +1434,7 @@ const demuxer_desc_t demuxer_desc_lavf = {
     .desc = "libavformat",
     .read_packet = demux_lavf_read_packet,
     .open = demux_open_lavf,
+    .drop_buffers = demux_drop_buffers_lavf,
     .close = demux_close_lavf,
     .seek = demux_seek_lavf,
     .switched_tracks = demux_lavf_switched_tracks,

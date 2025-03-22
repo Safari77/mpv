@@ -32,7 +32,7 @@
 
 #include <libavutil/common.h>
 
-#include "libmpv/client.h"
+#include "mpv/client.h"
 #include "player/client.h"
 
 #include "mpv_talloc.h"
@@ -674,7 +674,7 @@ static int parse_choice(struct mp_log *log, const struct m_option *opt,
 
 static void choice_get_min_max(const struct m_option *opt, int *min, int *max)
 {
-    assert(opt->type == &m_option_type_choice);
+    mp_assert(opt->type == &m_option_type_choice);
     *min = INT_MAX;
     *max = INT_MIN;
     for (const struct m_opt_choice_alternatives *alt = opt->priv; alt->name; alt++) {
@@ -699,7 +699,7 @@ static void check_choice(int dir, int val, bool *found, int *best, int choice)
 
 static void add_choice(const m_option_t *opt, void *val, double add, bool wrap)
 {
-    assert(opt->type == &m_option_type_choice);
+    mp_assert(opt->type == &m_option_type_choice);
     int dir = add > 0 ? +1 : -1;
     bool found = false;
     int ival = *(int *)val;
@@ -1113,30 +1113,9 @@ static int parse_double_aspect(struct mp_log *log, const m_option_t *opt,
 {
     if (bstr_equals0(param, "no")) {
         if (dst)
-            VAL(dst) = 0.0;
+            VAL(dst) = -2.0;
         return 1;
     }
-
-    // Potentially allow -1 but forbid all other negative values.
-    if (opt->defval && *(double *)opt->defval == -1) {
-        if (bstr_equals0(param, "original")) {
-            if (dst)
-                VAL(dst) = -1.0;
-            return 1;
-        }
-
-        struct bstr rest;
-        double val = bstrtod(param, &rest);
-        if (bstr_eatstart0(&rest, ":") || bstr_eatstart0(&rest, "/"))
-            val /= bstrtod(rest, &rest);
-        if (val == -1 && dst) {
-            VAL(dst) = -1.0;
-            mp_warn(log, "Setting '%.*s' to '%.*s' is deprecated. "
-                    "Set 'original' instead.\n", BSTR_P(param), BSTR_P(name));
-            return 1;
-        }
-    }
-
     return parse_double(log, opt, name, param, dst);
 }
 
@@ -1708,7 +1687,7 @@ static void keyvalue_list_del_key(char **lst, int index)
     int count = 0;
     for (int n = 0; lst && lst[n]; n++)
         count++;
-    assert(index * 2 + 1 < count);
+    mp_assert(index * 2 + 1 < count);
     count += 1; // terminating item
     talloc_free(lst[index * 2 + 0]);
     talloc_free(lst[index * 2 + 1]);
@@ -2927,7 +2906,7 @@ static char *print_rel_time(const m_option_t *opt, const void *val)
     case REL_TIME_RELATIVE:
         return talloc_asprintf(NULL, "%+g", t->pos);
     case REL_TIME_CHAPTER:
-        return talloc_asprintf(NULL, "#%g", t->pos);
+        return talloc_asprintf(NULL, "#%g", t->pos + 1);
     case REL_TIME_PERCENT:
         return talloc_asprintf(NULL, "%g%%", t->pos);
     }
@@ -3007,7 +2986,7 @@ static void obj_settings_list_del_at(m_obj_settings_t **p_obj_list, int idx)
     m_obj_settings_t *obj_list = *p_obj_list;
     int num = obj_settings_list_num_items(obj_list);
 
-    assert(idx >= 0 && idx < num);
+    mp_assert(idx >= 0 && idx < num);
 
     obj_setting_free(&obj_list[idx]);
 
@@ -3035,7 +3014,7 @@ static bool obj_settings_list_insert_at(struct mp_log *log,
     }
     if (idx < 0)
         idx = num + idx + 1;
-    assert(idx >= 0 && idx <= num);
+    mp_assert(idx >= 0 && idx <= num);
     *p_obj_list = talloc_realloc(NULL, *p_obj_list, struct m_obj_settings,
                                  num + 2);
     memmove(*p_obj_list + idx + 1, *p_obj_list + idx,
@@ -3424,7 +3403,7 @@ static int parse_obj_settings_list(struct mp_log *log, const m_option_t *opt,
     const struct m_obj_list *ol = opt->priv;
     int ret = 1;
 
-    assert(opt->priv);
+    mp_assert(opt->priv);
 
     if (bstr_endswith0(name, "-add")) {
         op = OP_ADD;
@@ -3621,7 +3600,7 @@ static int parse_obj_settings_list(struct mp_log *log, const m_option_t *opt,
             }
             free_obj_settings_list(&res);
         } else {
-            assert(op == OP_NONE);
+            mp_assert(op == OP_NONE);
             free_obj_settings_list(&list);
             list = res;
         }
@@ -3727,7 +3706,7 @@ error:
 static struct mpv_node *add_array_entry(struct mpv_node *dst)
 {
     struct mpv_node_list *list = dst->u.list;
-    assert(dst->format == MPV_FORMAT_NODE_ARRAY&& dst->u.list);
+    mp_assert(dst->format == MPV_FORMAT_NODE_ARRAY&& dst->u.list);
     MP_TARRAY_GROW(list, list->values, list->num);
     return &list->values[list->num++];
 }
@@ -3735,7 +3714,7 @@ static struct mpv_node *add_array_entry(struct mpv_node *dst)
 static struct mpv_node *add_map_entry(struct mpv_node *dst, const char *key)
 {
     struct mpv_node_list *list = dst->u.list;
-    assert(dst->format == MPV_FORMAT_NODE_MAP && dst->u.list);
+    mp_assert(dst->format == MPV_FORMAT_NODE_MAP && dst->u.list);
     MP_TARRAY_GROW(list, list->values, list->num);
     MP_TARRAY_GROW(list, list->keys, list->num);
     list->keys[list->num] = talloc_strdup(list, key);

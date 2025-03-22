@@ -187,7 +187,7 @@ static struct sd *init_decoder(struct dec_sub *sub)
 struct dec_sub *sub_create(struct mpv_global *global, struct track *track,
                            struct attachment_list *attachments, int order)
 {
-    assert(track->stream && track->stream->type == STREAM_SUB);
+    mp_assert(track->stream && track->stream->type == STREAM_SUB);
 
     struct dec_sub *sub = talloc(NULL, struct dec_sub);
     *sub = (struct dec_sub){
@@ -520,7 +520,7 @@ int sub_control(struct dec_sub *sub, enum sd_ctrl cmd, void *arg)
         break;
     }
     case SD_CTRL_UPDATE_OPTS: {
-        int flags = (uintptr_t)arg;
+        uint64_t flags = *(uint64_t *)arg;
         if (m_config_cache_update(sub->opts_cache))
             update_subtitle_speed(sub);
         m_config_cache_update(sub->shared_opts_cache);

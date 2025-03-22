@@ -250,7 +250,7 @@ typedef struct lavc_ctx {
 
 enum {
     HWDEC_FLAG_AUTO         = (1 << 0), // prioritize in autoprobe order
-    HWDEC_FLAG_WHITELIST    = (1 << 1), // whitelist for auto-safe
+    HWDEC_FLAG_WHITELIST    = (1 << 1), // whitelist for auto
 };
 
 struct autoprobe_info {
@@ -274,8 +274,6 @@ const struct autoprobe_info hwdec_autoprobe_info[] = {
     {"vdpau-copy",      HWDEC_FLAG_AUTO | HWDEC_FLAG_WHITELIST},
     {"drm",             HWDEC_FLAG_AUTO | HWDEC_FLAG_WHITELIST},
     {"drm-copy",        HWDEC_FLAG_AUTO | HWDEC_FLAG_WHITELIST},
-    {"mmal",            HWDEC_FLAG_AUTO},
-    {"mmal-copy",       HWDEC_FLAG_AUTO | HWDEC_FLAG_WHITELIST},
     {"mediacodec",      HWDEC_FLAG_AUTO},
     {"mediacodec-copy", HWDEC_FLAG_AUTO | HWDEC_FLAG_WHITELIST},
     {"videotoolbox",    HWDEC_FLAG_AUTO | HWDEC_FLAG_WHITELIST},
@@ -371,7 +369,7 @@ static void add_all_hwdec_methods(struct hwdec_info **infos, int *num_infos)
                 info.pix_fmt = cfg->pix_fmt;
 
                 const char *name = av_hwdevice_get_type_name(cfg->device_type);
-                assert(name); // API violation by libavcodec
+                mp_assert(name); // API violation by libavcodec
 
                 // nvdec hwaccels and the cuvid full decoder clash with their
                 // naming, so fix it here; we also prefer nvdec for the hwaccel.
@@ -408,7 +406,7 @@ static void add_all_hwdec_methods(struct hwdec_info **infos, int *num_infos)
                 const char *name = wrapper;
                 if (!name)
                     name = av_get_pix_fmt_name(info.pix_fmt);
-                assert(name); // API violation by libavcodec
+                mp_assert(name); // API violation by libavcodec
 
                 snprintf(info.method_name, sizeof(info.method_name), "%s", name);
 
@@ -457,7 +455,7 @@ static AVBufferRef *hwdec_create_dev(struct mp_filter *vd,
                                      bool autoprobe)
 {
     vd_ffmpeg_ctx *ctx = vd->priv;
-    assert(hwdec->lavc_device);
+    mp_assert(hwdec->lavc_device);
 
     if (hwdec->copying) {
         const struct hwcontext_fns *fns =
@@ -508,14 +506,17 @@ static void select_and_set_hwdec(struct mp_filter *vd)
         bstr opt = bstr0(hwdec_api[i]);
 
         bool hwdec_requested = !bstr_equals0(opt, "no");
-        bool hwdec_auto_all = bstr_equals0(opt, "auto") ||
-                            bstr_equals0(opt, "");
-        bool hwdec_auto_safe = bstr_equals0(opt, "auto-safe") ||
+        bool hwdec_auto_safe = bstr_equals0(opt, "auto") ||
+                            bstr_equals0(opt, "auto-safe") ||
+                            bstr_equals0(opt, "auto-copy") ||
                             bstr_equals0(opt, "auto-copy-safe") ||
-                            bstr_equals0(opt, "yes");
+                            bstr_equals0(opt, "yes") ||
+                            bstr_equals0(opt, "");
+        bool hwdec_auto_unsafe = bstr_equals0(opt, "auto-unsafe");
         bool hwdec_auto_copy = bstr_equals0(opt, "auto-copy") ||
-                            bstr_equals0(opt, "auto-copy-safe");
-        bool hwdec_auto = hwdec_auto_all || hwdec_auto_copy || hwdec_auto_safe;
+                            bstr_equals0(opt, "auto-copy-safe") ||
+                            bstr_equals0(opt, "auto-copy-unsafe");
+        bool hwdec_auto = hwdec_auto_unsafe || hwdec_auto_copy || hwdec_auto_safe;
 
         if (!hwdec_requested) {
             MP_VERBOSE(vd, "No hardware decoding requested.\n");
@@ -651,7 +652,9 @@ static int hwdec_opt_help(struct mp_log *log, const m_option_t *opt,
     mp_info(log, "  no\n");
     mp_info(log, "  auto-safe\n");
     mp_info(log, "  auto-copy\n");
+    mp_info(log, "  auto-unsafe\n");
     mp_info(log, "  auto-copy-safe\n");
+    mp_info(log, "  auto-copy-unsafe\n");
 
     return M_OPT_EXIT;
 }
@@ -678,7 +681,7 @@ static void reinit(struct mp_filter *vd)
      * Reset attempted hwdecs so that if the hwdec list is reconfigured
      * we attempt all of them from the beginning. The most practical
      * reason for this is that ctrl+h toggles between `no` and
-     * `auto-safe`, and we want to reevaluate from a clean slate each time.
+     * `auto`, and we want to reevaluate from a clean slate each time.
      */
     TA_FREEP(&ctx->attempted_hwdecs);
     ctx->num_attempted_hwdecs = 0;
@@ -703,7 +706,7 @@ static void init_avctx(struct mp_filter *vd)
 
     m_config_cache_update(ctx->opts_cache);
 
-    assert(!ctx->avctx);
+    mp_assert(!ctx->avctx);
 
     const AVCodec *lavc_codec = NULL;
 
@@ -719,10 +722,6 @@ static void init_avctx(struct mp_filter *vd)
     ctx->intra_only = desc && (desc->props & AV_CODEC_PROP_INTRA_ONLY);
 
     ctx->codec_timebase = mp_get_codec_timebase(ctx->codec);
-
-    // This decoder does not read pkt_timebase correctly yet.
-    if (strstr(lavc_codec->name, "_mmal"))
-        ctx->codec_timebase = (AVRational){1, 1000000};
 
     ctx->hwdec_failed = false;
     ctx->hwdec_request_reinit = false;
@@ -993,7 +992,7 @@ static enum AVPixelFormat get_format_hwdec(struct AVCodecContext *avctx,
     MP_VERBOSE(vd, "Codec profile: %s (0x%x)\n", profile ? profile : "unknown",
                avctx->profile);
 
-    assert(ctx->use_hwdec);
+    mp_assert(ctx->use_hwdec);
 
     ctx->hwdec_request_reinit |= ctx->hwdec_failed;
     ctx->hwdec_failed = false;
@@ -1189,7 +1188,7 @@ static void send_queued_packet(struct mp_filter *vd)
 {
     vd_ffmpeg_ctx *ctx = vd->priv;
 
-    assert(ctx->num_requeue_packets);
+    mp_assert(ctx->num_requeue_packets);
 
     if (send_packet(vd, ctx->requeue_packets[0]) != AVERROR(EAGAIN)) {
         talloc_free(ctx->requeue_packets[0]);
@@ -1233,7 +1232,7 @@ static int decode_frame(struct mp_filter *vd)
 
     // If something was decoded successfully, it must return a frame with valid
     // data.
-    assert(ctx->pic->buf[0]);
+    mp_assert(ctx->pic->buf[0]);
 
     struct mp_image *mpi = mp_image_from_av_frame(ctx->pic);
     if (!mpi) {
@@ -1357,12 +1356,12 @@ static int control(struct mp_filter *vd, enum dec_ctrl cmd, void *arg)
         AVCodecContext *avctx = ctx->avctx;
         if (!avctx)
             break;
-        if (ctx->use_hwdec && strcmp(ctx->hwdec.method_name, "mmal") == 0)
-            break; // MMAL has arbitrary buffering, thus unknown
         *(int *)arg = avctx->has_b_frames;
         return CONTROL_TRUE;
     }
     case VDCTRL_GET_HWDEC: {
+        if (!ctx->hwdec_notified)
+            return CONTROL_FALSE;
         *(char **)arg = ctx->use_hwdec ? ctx->hwdec.method_name : NULL;
         return CONTROL_TRUE;
     }

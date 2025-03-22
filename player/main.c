@@ -203,7 +203,7 @@ void mp_destroy(struct MPContext *mpctx)
     uninit_libav(mpctx->global);
 
     mp_msg_uninit(mpctx->global);
-    assert(!mpctx->num_abort_list);
+    mp_assert(!mpctx->num_abort_list);
     talloc_free(mpctx->abort_list);
     mp_mutex_destroy(&mpctx->abort_lock);
     talloc_free(mpctx->mconfig); // destroy before dispatch
@@ -260,9 +260,7 @@ struct MPContext *mp_create(void)
     }
 
     char *enable_talloc = getenv("MPV_LEAK_REPORT");
-    if (!enable_talloc)
-        enable_talloc = HAVE_TA_LEAK_REPORT ? "1" : "0";
-    if (strcmp(enable_talloc, "1") == 0)
+    if (enable_talloc && strcmp(enable_talloc, "1") == 0)
         talloc_enable_leak_report();
 
     mp_time_init();
@@ -335,7 +333,7 @@ int mp_initialize(struct MPContext *mpctx, char **options)
 {
     struct MPOpts *opts = mpctx->opts;
 
-    assert(!mpctx->initialized);
+    mp_assert(!mpctx->initialized);
 
     // Preparse the command line, so we can init the terminal early.
     if (options) {
@@ -385,6 +383,7 @@ int mp_initialize(struct MPContext *mpctx, char **options)
     m_config_set_update_dispatch_queue(mpctx->mconfig, mpctx->dispatch);
     // Run all update handlers.
     mp_option_change_callback(mpctx, NULL, UPDATE_OPTS_MASK, false);
+    handle_option_callbacks(mpctx);
 
     if (handle_help_options(mpctx))
         return 1; // help
@@ -411,6 +410,8 @@ int mp_initialize(struct MPContext *mpctx, char **options)
     if (opts->media_controls)
         mp_smtc_init(mp_new_client(mpctx->clients, "SystemMediaTransportControls"));
 #endif
+
+    mpctx->ipc_ctx = mp_init_ipc(mpctx->clients, mpctx->global);
 
     if (opts->encode_opts->file && opts->encode_opts->file[0]) {
         mpctx->encode_lavc_ctx = encode_lavc_init(mpctx->global);

@@ -100,6 +100,7 @@ sources = files(
     'demux/demux_mf.c',
     'demux/demux_mkv.c',
     'demux/demux_mkv_timeline.c',
+    'demux/demux_mpv.c',
     'demux/demux_null.c',
     'demux/demux_playlist.c',
     'demux/demux_raw.c',
@@ -189,6 +190,7 @@ sources = files(
     'stream/stream_lavf.c',
     'stream/stream_memory.c',
     'stream/stream_mf.c',
+    'stream/stream_mpv.c',
     'stream/stream_null.c',
     'stream/stream_slice.c',
 
@@ -339,20 +341,14 @@ if posix
     flags += ['-D_GNU_SOURCE']
 endif
 
-if cc.has_link_argument('-Wl,-z,noexecstack')
-    link_flags += '-Wl,-z,noexecstack'
-endif
-
-if cc.has_link_argument('-Wl,--nxcompat,--no-seh,--dynamicbase')
-    link_flags += '-Wl,--nxcompat,--no-seh,--dynamicbase'
-endif
+link_flags += cc.get_supported_link_arguments(['-Wl,--nxcompat,--no-seh,--dynamicbase',
+                                               '-Wl,-z,noexecstack'])
 
 features += {'build-date': get_option('build-date')}
 if not features['build-date']
     flags += '-DNO_BUILD_TIMESTAMPS'
 endif
 
-features += {'ta-leak-report': get_option('ta-leak-report')}
 features += {'disable-packet-pool': get_option('disable-packet-pool')}
 
 libdl = dependency('dl', required: false)
@@ -454,7 +450,7 @@ features += {'ppoll': cc.has_function('ppoll', args: '-D_GNU_SOURCE',
 features += {'memrchr': cc.has_function('memrchr', args: '-D_GNU_SOURCE',
                                         prefix: '#include <string.h>')}
 
-cd_devices = {
+optical_devices = {
     'windows': 'D:',
     'cygwin': 'D:',
     'darwin': '/dev/disk1',
@@ -462,24 +458,10 @@ cd_devices = {
     'openbsd': '/dev/rcd0c',
     'linux': '/dev/sr0',
 }
-if host_machine.system() in cd_devices
-    cd_device = cd_devices[host_machine.system()]
+if host_machine.system() in optical_devices
+    optical_device = optical_devices[host_machine.system()]
 else
-    cd_device = '/dev/cdrom'
-endif
-
-dvd_devices = {
-    'windows': 'D:',
-    'cygwin': 'D:',
-    'darwin': '/dev/diskN',
-    'freebsd': '/dev/cd0',
-    'openbsd': '/dev/rcd0c',
-    'linux': '/dev/sr0',
-}
-if host_machine.system() in cd_devices
-    dvd_device = dvd_devices[host_machine.system()]
-else
-    dvd_device = '/dev/dvd'
+    optical_device = '/dev/cdrom'
 endif
 
 features += {'android': host_machine.system() == 'android'}
@@ -651,10 +633,9 @@ dvdnav_opt = get_option('dvdnav').require(
     error_message: 'the build is not GPL!',
 )
 dvdnav = dependency('dvdnav', version: '>= 4.2.0', required: dvdnav_opt)
-dvdread = dependency('dvdread', version: '>= 4.1.0', required: dvdnav_opt)
-features += {'dvdnav': dvdnav.found() and dvdread.found()}
+features += {'dvdnav': dvdnav.found()}
 if features['dvdnav']
-    dependencies += [dvdnav, dvdread]
+    dependencies += dvdnav
     sources += files('stream/stream_dvdnav.c')
 endif
 
@@ -949,7 +930,7 @@ if features['direct3d']
     sources += files('video/out/vo_direct3d.c')
 endif
 
-drm = dependency('libdrm', version: '>= 2.4.109', required: get_option('drm'))
+drm = dependency('libdrm', version: '>= 2.4.105', required: get_option('drm'))
 libdisplay_info = dependency('libdisplay-info', version: '>= 0.1.1', required: get_option('drm'))
 features += {'drm': drm.found() and libdisplay_info.found() and
              (features['vt.h'] or features['consio.h'] or features['wsdisplay-usl-io.h'])}
@@ -1580,6 +1561,7 @@ if features['cocoa'] and features['swift']
     swift_sources += files('osdep/mac/application.swift',
                            'osdep/mac/app_hub.swift',
                            'osdep/mac/clipboard.swift',
+                           'osdep/mac/dialog.swift',
                            'osdep/mac/event_helper.swift',
                            'osdep/mac/input_helper.swift',
                            'osdep/mac/log_helper.swift',
@@ -1716,8 +1698,7 @@ endif
 # Set config.h
 conf_data = configuration_data()
 conf_data.set_quoted('CONFIGURATION', meson.build_options())
-conf_data.set_quoted('DEFAULT_DVD_DEVICE', dvd_device)
-conf_data.set_quoted('DEFAULT_CDROM_DEVICE', cd_device)
+conf_data.set_quoted('DEFAULT_OPTICAL_DEVICE', optical_device)
 
 # Loop over all features in the build, create a define and add them to config.h
 feature_keys = []
@@ -1775,13 +1756,15 @@ if win32
 endif
 
 
-client_h_define = cc.get_define('MPV_CLIENT_API_VERSION', prefix: '#include "libmpv/client.h"',
-                                include_directories: include_directories('.'))
+incdir_public = include_directories('./include')
+client_h_define = cc.get_define('MPV_CLIENT_API_VERSION', prefix: '#include "mpv/client.h"',
+                                include_directories: incdir_public)
 major = client_h_define.split('|')[0].split('<<')[0].strip('() ')
 minor = client_h_define.split('|')[1].strip('() ')
 client_api_version = major + '.' + minor + '.0'
 
 libmpv = library('mpv', sources, dependencies: dependencies, gnu_symbol_visibility: 'hidden',
+                 include_directories: incdir_public,
                  link_args: cc.get_supported_link_arguments(['-Wl,-Bsymbolic']),
                  version: client_api_version, install: get_option('libmpv'),
                  build_by_default: get_option('libmpv'))
@@ -1792,12 +1775,12 @@ if get_option('libmpv')
     pkg.generate(libmpv, version: client_api_version,
                  description: 'mpv media player client library')
 
-    headers = ['libmpv/client.h', 'libmpv/render.h',
-               'libmpv/render_gl.h', 'libmpv/stream_cb.h']
+    headers = ['include/mpv/client.h', 'include/mpv/render.h',
+               'include/mpv/render_gl.h', 'include/mpv/stream_cb.h']
     install_headers(headers, subdir: 'mpv')
 
     # Allow projects to build with libmpv by cloning into ./subprojects/mpv
-    libmpv_dep = declare_dependency(link_with: libmpv)
+    libmpv_dep = declare_dependency(include_directories: incdir_public, link_with: libmpv)
     meson.override_dependency('mpv', libmpv_dep)
 endif
 
@@ -1815,6 +1798,9 @@ if get_option('cplayer')
 
     zsh_install_dir = join_paths(datadir, 'zsh', 'site-functions')
     install_data('etc/_mpv.zsh', install_dir: zsh_install_dir, rename: '_mpv')
+
+    fish_install_dir = join_paths(datadir, 'fish', 'vendor_completions.d')
+    install_data('etc/mpv.fish', install_dir: fish_install_dir, rename: 'mpv.fish')
 
     install_data('etc/mpv.metainfo.xml', install_dir: join_paths(datadir, 'metainfo'))
     install_data('etc/encoding-profiles.conf', install_dir: join_paths(confdir, 'mpv'))
@@ -1834,7 +1820,9 @@ if get_option('cplayer')
 
     if win32 and get_option('win32-subsystem') != 'console'
         wrapper_sources= 'osdep/win32-console-wrapper.c'
-        executable('mpv', wrapper_sources, c_args: '-municode', link_args: '-municode',
+        executable('mpv', wrapper_sources, c_args: ['-municode', '-fno-asynchronous-unwind-tables'],
+                   link_args: ['-municode', '-nostartfiles', '-nodefaultlibs'],
+                   override_options: ['b_sanitize=none'],
                    name_suffix: 'com', install: true)
     endif
 

@@ -21,8 +21,6 @@
 #include <stdatomic.h>
 #include <stdbool.h>
 
-#include "libmpv/client.h"
-
 #include "audio/aframe.h"
 #include "clipboard/clipboard.h"
 #include "common/common.h"
@@ -441,9 +439,12 @@ typedef struct MPContext {
     struct command_ctx *command_ctx;
     struct encode_lavc_context *encode_lavc_ctx;
 
+    struct mp_option_callback *option_callbacks;
+    int num_option_callbacks;
+
     struct mp_ipc_ctx *ipc_ctx;
 
-    int64_t builtin_script_ids[6];
+    int64_t builtin_script_ids[8];
 
     mp_mutex abort_lock;
 
@@ -490,6 +491,13 @@ struct mp_abort_entry {
 #define WHITE_CIRCLE "\xe2\x97\x8b"
 #define BLACK_CIRCLE "\xe2\x97\x8f"
 
+enum track_flags {
+    // starts at 4, for cmd_track_add backwards compatibility
+    TRACK_HEARING_IMPAIRED = 1 << 2,
+    TRACK_VISUAL_IMPAIRED = 1 << 3,
+    TRACK_ATTACHED_PICTURE = 1 << 4,
+};
+
 // audio.c
 void reset_audio_state(struct MPContext *mpctx);
 void reinit_audio_chain(struct MPContext *mpctx);
@@ -503,6 +511,7 @@ void update_playback_speed(struct MPContext *mpctx);
 void uninit_audio_out(struct MPContext *mpctx);
 void uninit_audio_chain(struct MPContext *mpctx);
 void reinit_audio_chain_src(struct MPContext *mpctx, struct track *track);
+float audio_get_gain(struct MPContext *mpctx);
 void audio_update_volume(struct MPContext *mpctx);
 void reload_audio_output(struct MPContext *mpctx);
 void audio_start_ao(struct MPContext *mpctx);
@@ -527,7 +536,7 @@ void mp_abort_trigger_locked(struct MPContext *mpctx,
                              struct mp_abort_entry *abort);
 int mp_add_external_file(struct MPContext *mpctx, char *filename,
                          enum stream_type filter, struct mp_cancel *cancel,
-                         bool cover_art);
+                         enum track_flags flags);
 void mark_track_selection(struct MPContext *mpctx, int order,
                           enum stream_type type, int value);
 #define FLAG_MARK_SELECTION 1
@@ -597,12 +606,14 @@ void mp_wakeup_core(struct MPContext *mpctx);
 void mp_wakeup_core_cb(void *ctx);
 void mp_core_lock(struct MPContext *mpctx);
 void mp_core_unlock(struct MPContext *mpctx);
+void handle_option_callbacks(struct MPContext *mpctx);
 double get_relative_time(struct MPContext *mpctx);
 void reset_playback_state(struct MPContext *mpctx);
 void set_pause_state(struct MPContext *mpctx, bool user_pause);
 void update_internal_pause_state(struct MPContext *mpctx);
 void update_core_idle_state(struct MPContext *mpctx);
 void add_step_frame(struct MPContext *mpctx, int dir, bool use_seek);
+void step_frame_mute(struct MPContext *mpctx, bool mute);
 void queue_seek(struct MPContext *mpctx, enum seek_type type, double amount,
                 enum seek_precision exact, int flags);
 double get_time_length(struct MPContext *mpctx);

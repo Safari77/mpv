@@ -206,7 +206,10 @@ static const m_option_t mp_vo_opt_list[] = {
         {"auto", -1}, {"no", 0}, {"yes", 1})},
     {"wayland-content-type", OPT_CHOICE(wl_content_type, {"auto", -1}, {"none", 0},
         {"photo", 1}, {"video", 2}, {"game", 3})},
-    {"wayland-disable-vsync", OPT_BOOL(wl_disable_vsync)},
+    {"wayland-disable-vsync", OPT_BOOL(wl_disable_vsync),
+        .deprecation_message = "replaced by --wayland-internal-vsync=no"},
+    {"wayland-internal-vsync", OPT_CHOICE(wl_internal_vsync,
+        {"no", 0}, {"auto", 1}, {"yes", 2})},
     {"wayland-edge-pixels-pointer", OPT_INT(wl_edge_pixels_pointer),
         M_RANGE(0, INT_MAX)},
     {"wayland-edge-pixels-touch", OPT_INT(wl_edge_pixels_touch),
@@ -261,7 +264,6 @@ const struct m_sub_options vo_sub_opts = {
         .keepaspect = true,
         .keepaspect_window = true,
         .native_fs = true,
-        .input_ime = true,
         .taskbar_progress = true,
         .show_in_taskbar = true,
         .border = true,
@@ -275,6 +277,7 @@ const struct m_sub_options vo_sub_opts = {
         .wl_content_type = -1,
         .wl_edge_pixels_pointer = 16,
         .wl_edge_pixels_touch = 32,
+        .wl_internal_vsync = 1,
         .wl_present = true,
         .mmcss_profile = "Playback",
         .ontop_level = -1,
@@ -551,6 +554,8 @@ static const m_option_t mp_opts[] = {
         OPT_CHOICE(lua_load_auto_profiles, {"no", 0}, {"yes", 1}, {"auto", -1}),
         .flags = UPDATE_BUILTIN_SCRIPTS},
     {"load-select", OPT_BOOL(lua_load_select), .flags = UPDATE_BUILTIN_SCRIPTS},
+    {"load-positioning", OPT_BOOL(lua_load_positioning), .flags = UPDATE_BUILTIN_SCRIPTS},
+    {"load-commands", OPT_BOOL(lua_load_commands), .flags = UPDATE_BUILTIN_SCRIPTS},
 #endif
 
 // ------------------------- stream options --------------------
@@ -983,6 +988,8 @@ static const struct MPOpts mp_default_opts = {
     .lua_load_console = true,
     .lua_load_auto_profiles = -1,
     .lua_load_select = true,
+    .lua_load_positioning = true,
+    .lua_load_commands = true,
 #endif
     .auto_load_scripts = true,
     .loop_times = 1,
@@ -1001,6 +1008,7 @@ static const struct MPOpts mp_default_opts = {
     .demuxer_thread = true,
     .demux_termination_timeout = 0.1,
     .hls_bitrate = INT_MAX,
+    .prefetch_open = true,
     .cache_pause = true,
     .cache_pause_wait = 1.0,
     .ab_loop = {MP_NOPTS_VALUE, MP_NOPTS_VALUE},

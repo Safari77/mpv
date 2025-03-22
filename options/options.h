@@ -39,6 +39,7 @@ typedef struct mp_vo_opts {
     int wl_configure_bounds;
     int wl_content_type;
     bool wl_disable_vsync;
+    int wl_internal_vsync;
     int wl_edge_pixels_pointer;
     int wl_edge_pixels_touch;
     bool wl_present;
@@ -173,6 +174,8 @@ typedef struct MPOpts {
     bool lua_load_console;
     int lua_load_auto_profiles;
     bool lua_load_select;
+    bool lua_load_positioning;
+    bool lua_load_commands;
 
     bool auto_load_scripts;
 

@@ -230,7 +230,7 @@ mp.add_key_binding(nil, "select-chapter", function ()
     input.select({
         prompt = "Select a chapter:",
         items = chapters,
-        default_item = default_item + 1,
+        default_item = default_item > -1 and default_item + 1,
         submit = function (chapter)
             mp.set_property("chapter", chapter - 1)
         end,
@@ -248,7 +248,7 @@ mp.add_key_binding(nil, "select-edition", function ()
     local editions = {}
 
     for i, edition in ipairs(edition_list) do
-        editions[i] = edition.title or "Edition " .. (edition.id + 1)
+        editions[i] = edition.title or ("Edition " .. edition.id + 1)
     end
 
     input.select({
@@ -619,7 +619,7 @@ mp.add_key_binding(nil, "menu", function ()
         {"History", "script-binding select/select-watch-history", true},
         {"Watch later", "script-binding select/select-watch-later", true},
         {"Stats for nerds", "script-binding stats/display-page-1-toggle", true},
-        {"File info", "script-binding stats/display-page-5-toggle", true},
+        {"File info", "script-binding stats/display-page-5-toggle", mp.get_property("filename")},
         {"Help", "script-binding stats/display-page-4-toggle", true},
     }
 
@@ -636,8 +636,13 @@ mp.add_key_binding(nil, "menu", function ()
     input.select({
         prompt = "",
         items = labels,
+        keep_open = true,
         submit = function (i)
             mp.command(commands[i])
+
+            if not commands[i]:find("^script%-binding select/") then
+                input.terminate()
+            end
         end,
     })
 end)

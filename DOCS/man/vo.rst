@@ -10,6 +10,8 @@ syntax is:
 If the list has a trailing ``,``, mpv will fall back on drivers not contained
 in the list.
 
+This is an object settings list option. See `List Options`_ for details.
+
 .. note::
 
     See ``--vo=help`` for a list of compiled-in video output drivers.
@@ -300,7 +302,7 @@ Available video output drivers are:
     as ``auto-safe``. It can still work in some circumstances without ``--hwdec`` due to
     mpv's internal conversion filters, but this is not recommended as it's a needless
     extra step. Correct output depends on support from your GPU, drivers, and compositor.
-    This requires the compositor and mpv to support ``xx-color-management-v4`` to
+    This requires the compositor and mpv to support ``color-management-v1`` to
     accurately display colorspaces that are different from the compositor
     default (bt.601 in most cases).
 

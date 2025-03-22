@@ -388,10 +388,6 @@ static void destroy_osd_buffers(struct vo *vo)
     if (!vo->wl)
         return;
 
-    // Remove any existing buffer before we destroy them.
-    wl_surface_attach(vo->wl->osd_surface, NULL, 0, 0);
-    wl_surface_commit(vo->wl->osd_surface);
-
     struct priv *p = vo->priv;
     struct osd_buffer *osd_buf, *tmp;
     wl_list_for_each_safe(osd_buf, tmp, &p->osd_buffer_list, link) {
@@ -649,11 +645,11 @@ static void flip_page(struct vo *vo)
 {
     struct vo_wayland_state *wl = vo->wl;
 
-    wl_surface_commit(wl->video_surface);
     wl_surface_commit(wl->osd_surface);
+    wl_surface_commit(wl->video_surface);
     wl_surface_commit(wl->surface);
 
-    if (!wl->opts->wl_disable_vsync)
+    if (wl->opts->wl_internal_vsync)
         vo_wayland_wait_frame(wl);
 
     if (wl->use_present)
@@ -779,7 +775,7 @@ static int preinit(struct vo *vo)
     if (!p->ctx)
         goto err;
 
-    assert(p->ctx->ra);
+    mp_assert(p->ctx->ra);
 
     if (!vo->wl->dmabuf || !vo->wl->dmabuf_feedback) {
         MP_FATAL(vo->wl, "Compositor doesn't support the %s (ver. 4) protocol!\n",
@@ -866,8 +862,7 @@ err:
 const struct vo_driver video_out_dmabuf_wayland = {
     .description = "Wayland dmabuf video output",
     .name = "dmabuf-wayland",
-    .caps = VO_CAP_ROTATE90,
-    .frame_owner = true,
+    .caps = VO_CAP_ROTATE90 | VO_CAP_FRAMEOWNER,
     .preinit = preinit,
     .query_format = query_format,
     .reconfig2 = reconfig,

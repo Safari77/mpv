@@ -370,6 +370,9 @@ Playback Control
         Perform a very exact seek that attempts to seek by the desired amount
         of frames. If ``<frames>`` is ``-1``, this will go exactly to the
         previous frame.
+    mute
+        The same as ``play`` but mutes the audio stream if there is any during
+        the duration of the frame step.
 
     Note that the default frameskip mode, play, is more accurate but can be
     slow depending on how many frames you are skipping (i.e. skipping forward
@@ -415,6 +418,10 @@ Property Manipulation
 ``add <name> [<value>]``
     Add the given value to the property or option. On overflow or underflow,
     clamp the property to the maximum. If ``<value>`` is omitted, assume ``1``.
+
+    Whether or not key-repeat is enabled by default depends on the property.
+    Currently properties with continuous values are repeatable by default (like
+    ``volume``), while discrete values are not (like ``osd-level``).
 
     This is a scalable command. See the documentation of ``nonscalable`` input
     command prefix in `Input Command Prefixes`_ for details.
@@ -656,6 +663,21 @@ Track Manipulation
         (In this case, title/language are ignored, and if the was changed since
         it was loaded, these changes won't be reflected.)
 
+    Additionally the following flags can be added with a ``+``:
+
+    <hearing-impaired>
+
+        Marks the track as suitable for the hearing impaired.
+
+    <visual-impaired>
+
+        Marks the track as suitable for the visually impaired.
+
+    <attached-picture> (only for ``video-add``)
+
+        Marks the track as an attached picture, same as ``albumart`` argument
+        for ```video-add``.
+
     The ``title`` argument sets the track title in the UI.
 
     The ``lang`` argument sets the track language, and can also influence
@@ -731,7 +753,7 @@ Text Manipulation
     used only through the client API or from a script using
     ``mp.command_native``. (see `Property Expansion`_).
 
-``expand-path "<text>"``
+``expand-path <text>``
     Expand a path's double-tilde placeholders into a platform-specific path.
     As ``expand-text``, this can only be used through the client API or from
     a script using ``mp.command_native``.
@@ -780,7 +802,7 @@ Configuration Commands
 
     The mode argument:
 
-    ``default``
+    ``apply``
         Apply the profile. Default if the argument is omitted.
 
     ``restore``
@@ -2269,6 +2291,14 @@ Property list
 
 ``chapter`` (RW)
     Current chapter number. The number of the first chapter is 0.
+    A value of -1 indicates that the current playback position is before the
+    start of the first chapter,
+
+    Setting this property results in an absolute seek to the start of the
+    chapter. However, if the property is changed with ``add`` or ``cycle``
+    command which results in a decrement in value, it may go to the start of
+    the current chapter instead of the previous chapter.
+    See ``--chapter-seek-threshold`` for details.
 
 ``edition`` (RW)
     Current edition number. Setting this property to a different value will
@@ -2563,9 +2593,10 @@ Property list
 ``ao-volume`` (RW)
     System volume. This property is available only if mpv audio output is
     currently active, and only if the underlying implementation supports volume
-    control. What this option does depends on the API. For example, on ALSA
-    this usually changes system-wide audio, while with PulseAudio this controls
-    per-application volume.
+    control. What this option does, or how the value is interpreted depends on
+    the API. For example, on ALSA this usually changes system-wide audio volume
+    on a linear curve, while with PulseAudio this controls per-application volume
+    on a cubic curve.
 
 ``ao-mute`` (RW)
     Similar to ``ao-volume``, but controls the mute state. May be unimplemented
@@ -3883,7 +3914,7 @@ Property list
 
     This has a number of sub-properties. Replace ``<name>`` with the name of
     a top-level option. No guarantee of stability is given to any of these
-    sub-properties - they may change radically in the feature.
+    sub-properties - they may change radically in the future.
 
     ``option-info/<name>/name``
         The name of the option.
@@ -4009,23 +4040,10 @@ Property list
 
 ``current-clipboard-backend``
     A string containing the currently active clipboard backend.
-    The following clipboard backends are implemented:
+    See ``--clipboard-backends`` option for the list of available backends.
 
-    ``win32``
-        Windows backend.
-
-    ``mac``
-        macOS backend.
-
-    ``wayland``
-        Wayland backend. This backend is only available if the compositor
-        supports the ``zwlr_data_control_manager_v1`` protocol.
-
-    ``vo``
-        VO backend. Requires an active VO window, and support differs across
-        platforms. Currently, this is used as a fallback for Wayland
-        compositors without support for the ``zwlr_data_control_manager_v1``
-        protocol.
+``clock``
+    The current local time in hour:minutes format.
 
 Inconsistencies between options and properties
 ----------------------------------------------
