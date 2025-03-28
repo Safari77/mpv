@@ -18,6 +18,7 @@ License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
 local options = {
     persist_history = false,
     history_path = "~~state/command_history.txt",
+    remember_input = true,
 }
 
 local input = require "mp.input"
@@ -137,8 +138,10 @@ end
 local function closed(text, cursor_position)
     mp.enable_messages("silent:terminal-default")
 
-    last_text = text
-    last_cursor_position = cursor_position
+    if options.remember_input then
+        last_text = text
+        last_cursor_position = cursor_position
+    end
 end
 
 local function command_list()
@@ -589,6 +592,12 @@ mp.register_event("log-message", function(e)
     -- without scrollback and they include messages that are generated from the
     -- OSD display itself.
     if e.level == "trace" then return end
+
+    -- Avoid logging debug messages infinitely.
+    if e.prefix == "cplayer" and
+       e.text:find('^Run command: script%-message%-to, flags=64, args=%[target="console"') then
+        return
+    end
 
     -- Use color for debug/v/warn/error/fatal messages.
     input.log("[" .. e.prefix .. "] " .. e.text:sub(1, -2), styles[e.level],
