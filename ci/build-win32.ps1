@@ -9,7 +9,7 @@ if (-not (Test-Path $subprojects)) {
 
 # Wrap shaderc to run git-sync-deps and patch unsupported generator expression
 if (-not (Test-Path "$subprojects/shaderc_cmake")) {
-    git clone https://github.com/google/shaderc --depth 1 $subprojects/shaderc_cmake
+    git clone https://github.com/google/shaderc --depth 1 -b v2025.1 $subprojects/shaderc_cmake
     Set-Content -Path "$subprojects/shaderc_cmake/p.diff" -Value @'
 diff --git a/third_party/CMakeLists.txt b/third_party/CMakeLists.txt
 index d44f62a..54d4719 100644
@@ -135,13 +135,8 @@ $projects = @(
         URL = "https://gitlab.freedesktop.org/gstreamer/meson-ports/ffmpeg.git"
         Revision = "meson-7.1"
         Provides = @(
-            "libavcodec = libavcodec_dep",
-            "libavdevice = libavdevice_dep",
-            "libavfilter = libavfilter_dep",
-            "libavformat = libavformat_dep",
-            "libavutil = libavutil_dep",
-            "libswresample = libswresample_dep",
-            "libswscale = libswscale_dep"
+            "dependency_names = libavcodec, libavdevice, libavfilter, libavformat, libavutil, libswresample, libswscale"
+            "program_names = ffmpeg"
         )
     },
     @{
@@ -207,7 +202,7 @@ meson setup build `
     -Dgpl=true `
     -Dffmpeg:gpl=enabled `
     -Dffmpeg:tests=enabled `
-    -Dffmpeg:programs=disabled `
+    -Dffmpeg:programs=enabled `
     -Dffmpeg:sdl2=disabled `
     -Dffmpeg:vulkan=auto `
     -Dffmpeg:libdav1d=enabled `
