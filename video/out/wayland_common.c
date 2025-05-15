@@ -2627,7 +2627,6 @@ static void remove_output(struct vo_wayland_output *out)
     talloc_free(out->make);
     talloc_free(out->model);
     talloc_free(out);
-    return;
 }
 
 static void remove_seat(struct vo_wayland_seat *seat)
@@ -2667,7 +2666,6 @@ static void remove_seat(struct vo_wayland_seat *seat)
 
     wl_seat_destroy(seat->seat);
     talloc_free(seat);
-    return;
 }
 
 static void seat_create_data_source(struct vo_wayland_seat *seat)
@@ -3090,7 +3088,7 @@ static void begin_dragging(struct vo_wayland_state *wl)
 {
     struct vo_wayland_seat *s = wl->last_button_seat;
     if (!mp_input_test_dragging(wl->vo->input_ctx, wl->mouse_x, wl->mouse_y) &&
-        !wl->locked_size && s)
+        !wl->opts->fullscreen && s)
     {
         xdg_toplevel_move(wl->xdg_toplevel, s->seat, s->pointer_button_serial);
         wl->last_button_seat = NULL;
