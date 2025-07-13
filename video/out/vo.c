@@ -70,8 +70,8 @@ extern const struct vo_driver video_out_kitty;
 static const struct vo_driver *const video_out_drivers[] =
 {
     // high-quality and well-supported VOs first:
-    &video_out_gpu,
     &video_out_gpu_next,
+    &video_out_gpu,
 
 #if HAVE_VDPAU
     &video_out_vdpau,
@@ -1415,6 +1415,11 @@ double vo_get_display_fps(struct vo *vo)
     double res = vo->in->display_fps;
     mp_mutex_unlock(&in->lock);
     return res;
+}
+
+void * vo_get_display_swapchain(struct vo *vo)
+{
+    return vo->display_swapchain;
 }
 
 // Set specific event flags, and wakeup the playback core if needed.
