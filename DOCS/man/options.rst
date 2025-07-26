@@ -4542,6 +4542,11 @@ Input
     for mouse key bindings and scripts which read mouse positions for platforms
     which do not support ``--native-touch=no`` (e.g. Wayland).
 
+``--input-tablet-emulate-mouse=<yes|no>``
+    Emulate mouse move and button presses for tablet events (default: yes).
+
+    Wayland only.
+
 ``--input-dragging-deadzone=<N>``
     Begin the built-in window dragging when the mouse moves outside a deadzone of
     ``N`` pixels while the mouse button is being held down (default: 3). This only
@@ -5618,8 +5623,11 @@ DVB
 ``--dvbin-file=<filename>``
     Instructs mpv to read the channels list from ``<filename>``. The default is
     in the mpv configuration directory (usually ``~/.config/mpv``) with the
-    filename ``channels.conf.{sat,ter,cbl,atsc,isdbt}`` (based on your card
-    type) or ``channels.conf`` as a last resort.
+    filename ``channels.conf.{sat,sat1,ter,ter1,cbl,atsc,isdbt}`` (based on your
+    card type) or ``channels.conf`` as a last resort.
+    For cards supporting multiple delivery systems of the same kind, i.e.
+    DVB-T/T2 or DVB-S/S2, T2/S2 is assumed, unless the file extension
+    is ``ter1`` or ``sat1``.
     Please note that using specific file name with card type is recommended,
     since the legacy channel format is not fully standardized
     so autodetection of the delivery system may fail otherwise.
@@ -6492,6 +6500,14 @@ them.
     MAINPRESUB (resizable)
         The image, after conversion to RGB, but before
         ``--blend-subtitles=video`` is applied.
+
+        .. note::
+            With ``--vo=gpu``, ``MAIN`` and ``MAINPRESUB`` are separate shader
+            stages, this allows rendering overlays directly onto the pre-scaled
+            video stage. ``--vo=gpu-next`` does not support this feature,
+            and as such, the ``MAINPRESUB`` shader stage does not exist.
+            It is still valid to refer to this name in shaders, but it is
+            handled identically to ``MAIN``.
 
     MAIN (resizable)
         The main image, after conversion to RGB but before upscaling.
@@ -7580,6 +7596,19 @@ them.
 
     If ``video`` is selected, the behavior is similar to ``yes``, but subs are
     drawn at the video's native resolution, and scaled along with the video.
+
+    .. note:: ``--vo=gpu-next`` with ``--blend-subtitles=video`` will
+              correctly follow ``--video-rotate`` if rotated in 90-degree steps.
+
+    .. warning:: With ``--vo=gpu-next``, the ``--blend-subtitles=video`` mode
+                 blends the subtitles after scaling the video, similar to
+                 ``--blend-subtitles=yes``. The difference is that the subtitles
+                 are rendered at the video's native resolution and then scaled
+                 separately to blend with the video. This is useful for
+                 performance reasons, as it allows subtitles to be rendered at a
+                 lower resolution, but it does not have the same effect as
+                 hardsubbing, which would require blending before scaling. This
+                 may change in the future.
 
     .. warning:: This changes the way subtitle colors are handled. Normally,
                  subtitle colors are assumed to be in sRGB and color managed as
