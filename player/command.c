@@ -326,11 +326,11 @@ static char *append_selected_style(struct MPContext *mpctx, char *str)
                mpctx->video_out->osd->opts->osd_selected_color.b,
                mpctx->video_out->osd->opts->osd_selected_color.g,
                mpctx->video_out->osd->opts->osd_selected_color.r,
-               255 - mpctx->video_out->osd->opts->osd_selected_color.a,
+               (uint8_t)(255 - mpctx->video_out->osd->opts->osd_selected_color.a),
                mpctx->video_out->osd->opts->osd_selected_outline_color.b,
                mpctx->video_out->osd->opts->osd_selected_outline_color.g,
                mpctx->video_out->osd->opts->osd_selected_outline_color.r,
-               255 - mpctx->video_out->osd->opts->osd_selected_outline_color.a,
+               (uint8_t)(255 - mpctx->video_out->osd->opts->osd_selected_outline_color.a),
                OSD_ASS_1);
 }
 
@@ -7969,6 +7969,9 @@ void mp_option_run_callback(struct MPContext *mpctx, struct mp_option_callback *
         struct mp_decoder_wrapper *dec = track ? track->dec : NULL;
         if (dec) {
             mp_decoder_wrapper_control(dec, VDCTRL_REINIT, NULL);
+            // filter chain might not change (which normally triggers this), but
+            // hwdec will.
+            mp_notify(mpctx, MPV_EVENT_VIDEO_RECONFIG, NULL);
             double last_pts = mpctx->video_pts;
             if (last_pts != MP_NOPTS_VALUE)
                 queue_seek(mpctx, MPSEEK_ABSOLUTE, last_pts, MPSEEK_EXACT, 0);
@@ -7996,7 +7999,7 @@ void mp_option_run_callback(struct MPContext *mpctx, struct mp_option_callback *
             queue_seek(mpctx, MPSEEK_RELATIVE, 0.0, MPSEEK_EXACT, 0);
     }
 
-    if (opt_ptr == &opts->vo->android_surface_size) {
+    if (opt_ptr == &opts->vo->android_surface_size || opt_ptr == &opts->vo->d3d11_composition_size) {
         if (mpctx->video_out)
             vo_control(mpctx->video_out, VOCTRL_EXTERNAL_RESIZE, NULL);
     }
@@ -8031,6 +8034,17 @@ void mp_option_run_callback(struct MPContext *mpctx, struct mp_option_callback *
             }
         }
     }
+
+#if HAVE_LIBBLURAY
+    if (opt_ptr == &opts->stream_bluray_opts->angle) {
+        struct demuxer *demuxer = mpctx->demuxer;
+        if (mpctx->playback_initialized && demuxer && demuxer->stream && strcmp(demuxer->stream->info->name, "bdvm/bluray")) {
+            int angle = opts->stream_bluray_opts->angle - 1;
+            stream_control(demuxer->stream, STREAM_CTRL_SET_ANGLE, &angle);
+            demux_flush(demuxer);
+        }
+    }
+#endif
 
     if (opt_ptr == &opts->pause)
         set_pause_state(mpctx, opts->pause);
