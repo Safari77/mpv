@@ -1998,9 +1998,7 @@ Video
     missed vsyncs, but increases visible latency. This option only mandates an
     upper limit, the implementation can use a lower latency than requested
     internally. A setting of 1 means that the VO will wait for every frame to
-    become visible before starting to render the next frame. (Default: 3)
-    If ``--video-sync=display-*`` is used, this option is ignored and the depth
-    is always 1.
+    become visible before starting to render the next frame. (Default: 2)
 
 Audio
 -----
@@ -2887,8 +2885,19 @@ Subtitles
 
 ``--sub-fix-timing=<yes|no>``
     Adjust subtitle timing is to remove minor gaps or overlaps between
-    subtitles (if the difference is smaller than 210 ms, the gap or overlap
-    is removed).
+    subtitles.
+
+    See also: ``--sub-fix-timing-threshold`` and ``--sub-fix-timing-keep``.
+
+``--sub-fix-timing-threshold=<amount>``
+    Set the threshold in milliseconds for fixing subtitle timing (default: 210).
+    If the gap between two subtitle events is smaller than this, the gap is
+    removed.
+
+``--sub-fix-timing-keep=<amount>``
+    Set the minimum duration in milliseconds for subtitle events to be
+    considered for timing fixes (default: 400). If a subtitle event has a
+    duration smaller than this, its timing is not changed.
 
 ``--sub-forced-events-only=<yes|no>``
     Enabling this displays only forced events within subtitle streams. Only
@@ -7097,6 +7106,7 @@ them.
         mode adapts the source content to the target display before output.
         Note: HDR primaries are not overridden by the ``--target-prim`` option
         this only affects the enclosing container for the colorspace.
+        ``--target-gamut`` can be used to limit the output gamut if needed.
 
     source
         Uses the source content's metadata. This is the traditional
@@ -7175,6 +7185,14 @@ them.
 
         Your mileage may vary, this highly depends on the target display, there
         is no single answer, but try experimenting, you may be surprised.
+
+``--target-colorspace-hint-strict``
+    When enabled (default), the configured swapchain colorspace (with the hint)
+    will be respected. In this mode, the ``--target-*`` options act only as a
+    hint, while the negotiated swapchain format is used for rendering output.
+    This ensures correct results, since downstream processing depends on the
+    signaled colorspace. When disabled, the swapchain colorspace will be
+    overridden to match the ``--target-*`` options. (Only for ``--vo=gpu-next``)
 
 ``--target-prim=<value>``
     Specifies the primaries of the display. Video colors will be adapted to
@@ -7311,11 +7329,30 @@ them.
     the gamut you want to limit colors to. Takes the same values as
     ``--target-prim``. (Only for ``--vo=gpu-next``)
 
+    .. note::
+
+        If the selected gamut is wider, it will be limited to ``--target-prim``.
+        Additionally, if ``--target-colorspace-hint`` is specified, the signaled
+        gamut will be limited to the supported gamut of the swapchain. Which may
+        differ from the requested ``--target-prim``.
+
 ``--target-lut=<file>``
     Specifies a custom LUT file (in Adobe .cube format) to apply to the colors
     before display on-screen. This LUT is fed values in normalized RGB, after
     encoding into the target colorspace, so after the application of
     ``--target-trc``. (Only for ``--vo=gpu-next``)
+
+``--hdr-reference-white=<auto|10-1000000>``
+    Specifies the assumed peak brightness of the mastering display for SDR
+    content, in cd/m² (nits). This is used as HDR diffuse white level for SDR
+    content. Essentially this is the SDR brightness in HDR container.
+    Default is 203 cd/m². (Only for ``--vo=gpu-next``)
+
+    .. note::
+
+        This option overrides the ``--target-peak`` if is set and the target
+        transfer function is SDR. This way you can control SDR output separately
+        from HDR output.
 
 ``--tone-mapping=<value>``
     Specifies the algorithm used for tone-mapping images onto the target
@@ -7695,9 +7732,12 @@ them.
     Tile size used to draw parts of the mpv window not covered by video in
     ``--background=tiles`` mode (default: 16).
 
-``--border-background=<none|color|tiles>``
+``--border-background=<none|color|tiles|blur>``
     Same as ``--background`` but only applies to the black bar/border area of
     the window. ``vo=gpu-next`` only. Defaults to ``color``.
+
+``--background-blur-radius=<radius>``
+    The blur radius (in pixels) to use for ``--border-background=blur``
 
 ``--opengl-rectangle-textures``
     Force use of rectangle textures (default: no). Normally this shouldn't have
