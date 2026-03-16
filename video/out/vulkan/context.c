@@ -69,8 +69,12 @@ static inline OPT_STRING_VALIDATE_FUNC(vk_validate_dev)
     bool is_uuid = av_uuid_parse(*value, param_uuid) == 0;
 
     for (int i = 0; i < num; i++) {
+        VkPhysicalDeviceDriverProperties driver_prop = { 0 };
+        driver_prop.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DRIVER_PROPERTIES;
+
         VkPhysicalDeviceIDPropertiesKHR id_prop = { 0 };
         id_prop.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ID_PROPERTIES_KHR;
+        id_prop.pNext = &driver_prop;
 
         VkPhysicalDeviceProperties2KHR prop2 = { 0 };
         prop2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2_KHR;
@@ -83,9 +87,10 @@ static inline OPT_STRING_VALIDATE_FUNC(vk_validate_dev)
         if (help) {
             char device_uuid[37];
             av_uuid_unparse(id_prop.deviceUUID, device_uuid);
-            mp_info(log, "  '%s' (GPU %d, PCI ID %x:%x, UUID %s)\n",
+            mp_info(log, "  '%s' (GPU %d, PCI ID %x:%x, UUID %s, Driver %s)\n",
                     prop->deviceName, i, (unsigned)prop->vendorID,
-                    (unsigned)prop->deviceID, device_uuid);
+                    (unsigned)prop->deviceID, device_uuid,
+                    driver_prop.driverName);
         } else if (bstr_equals0(param, prop->deviceName)) {
             ret = 0;
             goto done;
@@ -420,6 +425,7 @@ bool ra_vk_ctx_init(struct ra_ctx *ctx, struct mpvk_ctx *vk,
         .surface = vk->surface,
         .present_mode = preferred_mode,
         .swapchain_depth = ctx->vo->opts->swapchain_depth,
+        .alpha_bits = ctx->opts.want_alpha ? 8 : 0,
     };
 
     if (p->opts->swap_mode >= 0) // user override
@@ -518,6 +524,35 @@ static void get_vsync(struct ra_swapchain *sw,
         p->params.get_vsync(sw->ctx, info);
 }
 
+static bool set_color(struct ra_swapchain *sw, struct mp_image_params *params)
+{
+    struct priv *p = sw->priv;
+
+    // Vulkan Wayland needs special handling to avoid duplicated color surface.
+    bool waylandvk = strcmp(sw->ctx->fns->name, "waylandvk") == 0;
+    // Assume anything else is supported when set_color is defined. However,
+    // everything else can use Vulkan API colorspace without issues, so unlikely
+    // that set_color is used outside of Wayland.
+    bool supported = PL_API_VER >= 361 || !waylandvk;
+    if (supported && p->params.set_color) {
+        if (waylandvk && params) {
+            // Request VK_COLOR_SPACE_PASS_THROUGH_EXT
+            pl_swapchain_colorspace_hint(p->vk->swapchain, &(struct pl_color_space){0});
+            // Do the resize in case surface format needs to change.
+            pl_swapchain_resize(p->vk->swapchain, &(int){0}, &(int){0});
+        }
+        bool ret = p->params.set_color(sw->ctx, params);
+        // To avoid ping-pong between VK_COLOR_SPACE_PASS_THROUGH_EXT and others,
+        // we assume that internal Wayland set_color always work, and update
+        // params to fallback values if needed.
+        mp_assert(ret || !waylandvk);
+        return ret;
+    }
+    // Technically we could call pl_swapchain_colorspace_hint() here directly,
+    // but we want to know when parameters are set "externally".
+    return false;
+}
+
 static pl_color_space_t target_csp(struct ra_swapchain *sw)
 {
     struct priv *p = sw->priv;
@@ -528,6 +563,7 @@ static pl_color_space_t target_csp(struct ra_swapchain *sw)
 
 static const struct ra_swapchain_fns vulkan_swapchain = {
     .color_depth   = color_depth,
+    .set_color     = set_color,
     .target_csp    = target_csp,
     .start_frame   = start_frame,
     .submit_frame  = submit_frame,

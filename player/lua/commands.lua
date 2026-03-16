@@ -335,8 +335,7 @@ local function command_flags_at_2nd_argument_list(command)
     local flags = {
         ["apply-profile"] = {"apply", "restore"},
         ["frame-step"] = {"play", "seek", "mute"},
-        ["loadfile"] = {"replace", "append", "append-play", "insert-next",
-                        "insert-next-play", "insert-at", "insert-at-play"},
+        ["loadfile"] = {"replace", "append", "insert-next", "insert-at", "play"},
         ["screenshot-to-file"] = {"subtitles", "video", "window", "osd", "scaled", "each-frame"},
         ["screenshot-raw"] = {"bgr0", "bgra", "rgba", "rgba64"},
         ["seek"] = {"relative", "absolute", "absolute-percent",
@@ -408,7 +407,7 @@ local function filter_label_list(type)
     return values
 end
 
-local function complete(before_cur)
+local function complete(before_cur, response)
     local tokens = {}
     local first_useful_token_index = 1
     local completions
@@ -465,7 +464,7 @@ local function complete(before_cur)
     while tokens[first_useful_token_index] and
           command_prefixes[tokens[first_useful_token_index].text] do
         if first_useful_token_index == #tokens then
-            return
+            return response({}, 1)
         end
 
         first_useful_token_index = first_useful_token_index + 1
@@ -549,7 +548,7 @@ local function complete(before_cur)
         end
     end
 
-    return completions or {}, completion_pos, completion_append
+    response(completions or {}, completion_pos, completion_append)
 end
 
 local function open(text, cursor_position, keep_open)

@@ -196,16 +196,26 @@ void mp_image_sethwfmt(struct mp_image *mpi, enum mp_imgfmt hw_fmt, enum mp_imgf
     mpi->imgfmt = hw_fmt;
     mpi->num_planes = fmt.num_planes;
     mpi->params.repr.alpha = (fmt.flags & MP_IMGFLAG_ALPHA) ? PL_ALPHA_INDEPENDENT
-#if PL_API_VER >= 344
                                                             : PL_ALPHA_NONE;
-#else
-                                                            : PL_ALPHA_UNKNOWN;
-#endif
-    mpi->params.repr.bits = (struct pl_bit_encoding) {
-        .sample_depth = fmt.comps[0].size,
-        .color_depth = fmt.comps[0].size - abs(fmt.comps[0].pad),
-        .bit_shift = MPMAX(0, fmt.comps[0].pad),
-    };
+    // Calculate bit encoding from all components (excluding alpha)
+    struct pl_bit_encoding bits = {0};
+    const int num_comps = mp_imgfmt_desc_get_num_comps(&fmt);
+    for (int c = 0; c < MPMIN(num_comps, 3); c++) {
+        struct pl_bit_encoding cbits = {
+            .sample_depth = fmt.comps[c].size,
+            .color_depth  = fmt.comps[c].size - abs(fmt.comps[c].pad),
+            .bit_shift    = MPMAX(fmt.comps[c].pad, 0),
+        };
+
+        if (bits.sample_depth && !pl_bit_encoding_equal(&bits, &cbits)) {
+            // Bit encoding differs between components, cannot handle this
+            bits = (struct pl_bit_encoding) {0};
+            break;
+        }
+
+        bits = cbits;
+    }
+    mpi->params.repr.bits = bits;
 }
 
 void mp_image_setfmt(struct mp_image *mpi, enum mp_imgfmt fmt)
@@ -964,11 +974,9 @@ void mp_image_params_guess_csp(struct mp_image_params *params)
             params->repr.sys != PL_COLOR_SYSTEM_BT_2100_HLG &&
             params->repr.sys != PL_COLOR_SYSTEM_DOLBYVISION &&
             params->repr.sys != PL_COLOR_SYSTEM_SMPTE_240M &&
-            params->repr.sys != PL_COLOR_SYSTEM_YCGCO
-#if PL_API_VER >= 358
-            && params->repr.sys != PL_COLOR_SYSTEM_YCGCO_RE
-            && params->repr.sys != PL_COLOR_SYSTEM_YCGCO_RO
-#endif
+            params->repr.sys != PL_COLOR_SYSTEM_YCGCO &&
+            params->repr.sys != PL_COLOR_SYSTEM_YCGCO_RE &&
+            params->repr.sys != PL_COLOR_SYSTEM_YCGCO_RO
         ) {
             // Makes no sense, so guess instead
             // YCGCO should be separate, but libavcodec disagrees
@@ -1028,12 +1036,7 @@ void mp_image_params_guess_csp(struct mp_image_params *params)
 
     // If the signal peak is unknown, we're forced to pick the TRC's
     // nominal range as the signal peak to prevent clipping
-    pl_color_space_nominal_luma_ex(pl_nominal_luma_params(
-        .color      = &params->color,
-        .metadata   = PL_HDR_METADATA_HDR10,
-        .scaling    = PL_HDR_NITS,
-        .out_max    = &params->color.hdr.max_luma,
-    ));
+    pl_color_space_infer(&params->color);
 
     if (!pl_color_space_is_hdr(&params->color)) {
         // Some clips have leftover HDR metadata after conversion to SDR, so to
@@ -1121,12 +1124,12 @@ struct mp_image *mp_image_from_av_frame(struct AVFrame *src)
         dst->params.stereo3d = p->stereo3d;
         // Might be incorrect if colorspace changes.
         dst->params.light = p->light;
-#if LIBAVUTIL_VERSION_INT < AV_VERSION_INT(60, 11, 100) || PL_API_VER < 356
+#if LIBAVUTIL_VERSION_INT < AV_VERSION_INT(60, 11, 100)
         dst->params.repr.alpha = p->repr.alpha;
 #endif
     }
 
-#if LIBAVUTIL_VERSION_INT >= AV_VERSION_INT(60, 11, 100) && PL_API_VER >= 356
+#if LIBAVUTIL_VERSION_INT >= AV_VERSION_INT(60, 11, 100)
     // mp_image_setfmt sets to PL_ALPHA_INDEPENDENT, if format has alpha.
     if (dst->params.repr.alpha == PL_ALPHA_INDEPENDENT)
         dst->params.repr.alpha = pl_alpha_from_av(src->alpha_mode);
@@ -1174,17 +1177,8 @@ struct mp_image *mp_image_from_av_frame(struct AVFrame *src)
         if (header->disable_residual_flag) {
             dst->dovi = dovi = av_buffer_alloc(sizeof(struct pl_dovi_metadata));
             MP_HANDLE_OOM(dovi);
-#if PL_API_VER >= 343
             pl_map_avdovi_metadata(&dst->params.color, &dst->params.repr,
                                    (void *)dst->dovi->data, metadata);
-#else
-            struct pl_frame frame;
-            frame.repr = dst->params.repr;
-            frame.color = dst->params.color;
-            pl_frame_map_avdovi_metadata(&frame, (void *)dst->dovi->data, metadata);
-            dst->params.repr = frame.repr;
-            dst->params.color = frame.color;
-#endif
         }
 #endif
     }

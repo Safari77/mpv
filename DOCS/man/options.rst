@@ -55,7 +55,7 @@ Track Selection
         behavior tends to change around with each mpv release.
 
         The track selection properties will return the option value outside of
-        playback (as expected), but during playback, the affective track
+        playback (as expected), but during playback, the effective track
         selection is returned. For example, with ``--aid=auto``, the ``aid``
         property will suddenly return ``2`` after playback initialization
         (assuming the file has at least 2 audio tracks, and the second is the
@@ -69,8 +69,8 @@ Track Selection
         still had the value ``2``, and writing the same value has no effect.
 
         With mpv 0.33.0, the behavior was changed. Now track selection options
-        are reset to ``auto`` at playback initialization, if the option had
-        tries to select a track that does not exist. The same is done if the
+        are reset to ``auto`` at playback initialization, if the option tried
+        to select a track that does not exist. The same is done if the
         track exists, but fails to initialize. The consequence is that unlike
         before mpv 0.33.0, the user's track selection parameters are clobbered
         in certain situations.
@@ -84,10 +84,10 @@ Track Selection
         file might reset the track selection to defaults, if the fingerprint
         of the track list of the new file is different.
 
-        Be aware of tricky combinations of all of all of the above: for example,
+        Be aware of tricky combinations of all of the above: for example,
         ``mpv --aid=2 file_with_2_audio_tracks.mkv file_with_1_audio_track.mkv``
         would first play the correct track, and the second file without audio.
-        If you then go back the first file, its first audio track will be played,
+        If you then go back to the first file, its first audio track will be played,
         and the second file is played with audio. If you do the same thing again
         but instead of using ``--aid=2`` you run ``set aid 2`` while the file is
         playing, then changing to the second file will play its audio track.
@@ -134,7 +134,7 @@ Track Selection
 
 ``--subs-with-matching-audio=<yes|forced|no>``
     When autoselecting a subtitle track, select it even if the selected audio
-    stream matches you preferred subtitle language (default: yes). If this
+    stream matches your preferred subtitle language (default: yes). If this
     option is set to ``no``, then no subtitle track that matches the audio
     language will ever be autoselected by mpv regardless of ``--slang`` or
     ``subs-fallback``. If set to ``forced``, then only forced subtitles
@@ -513,8 +513,8 @@ Playback Control
 ``--play-direction=<forward|+|backward|->``
     Control the playback direction (default: forward). Setting ``backward``
     will attempt to play the file in reverse direction, with decreasing
-    playback time. If this is set on playback starts, playback will start from
-    the end of the file. If this is changed at during playback, a hr-seek will
+    playback time. If this is set on playback start, playback will start from
+    the end of the file. If this is changed during playback, a hr-seek will
     be issued to change the direction.
 
     ``+`` and ``-`` are aliases for ``forward`` and ``backward``.
@@ -656,8 +656,7 @@ Playback Control
     - Setting ``--demuxer-cache-wait`` may be useful to cache the entire file
       into the demuxer cache. Set ``--demuxer-max-bytes`` to a large size to
       make sure it can read the entire cache; ``--demuxer-max-back-bytes``
-      should also be set to a large size to prevent that tries to trim the
-      cache.
+      should also be set to a large size to prevent it from trimming the cache.
 
     - If audio artifacts are audible, even though the AO does not underrun,
       increasing ``--audio-backward-overlap`` might help in some cases.
@@ -798,7 +797,7 @@ Program Behavior
 ``--dump-stats=<filename>``
     Write certain statistics to the given file. The file is truncated on
     opening. The file will contain raw samples, each with a timestamp. To
-    make this file into a readable, the script ``TOOLS/stats-conv.py`` can be
+    visualize the statistics, the script ``TOOLS/stats-conv.py`` can be
     used (which currently displays it as a graph).
 
     This option is useful for debugging only.
@@ -820,8 +819,9 @@ Program Behavior
     (Default: ``yes``)
 
 ``--script=<filename>``, ``--scripts=file1.lua:file2.lua:...``
-    Load a Lua script. The second option allows you to load multiple scripts by
-    separating them with the path separator (``:`` on Unix, ``;`` on Windows).
+    Load a script (Lua or JS) or a C plugin. The second option allows you to
+    load multiple scripts by separating them with the path separator (``:`` on
+    Unix, ``;`` on Windows).
 
     ``--scripts`` is a path list option. See `List Options`_ for details.
 
@@ -1035,9 +1035,6 @@ Program Behavior
         - ``--ytdl-raw-options=force-ipv6=``
         - ``--ytdl-raw-options=proxy=[http://127.0.0.1:3128]``
         - ``--ytdl-raw-options-append=proxy=http://127.0.0.1:3128``
-
-``--ytdl-extract-chapters=<yes|no>``
-    Enable chapter extracting from youtube-dl video description (default: yes).
 
 ``--js-memory-report=<yes|no>``
     Enable memory reporting for javascript scripts in the stats overlay.
@@ -1362,17 +1359,17 @@ Video
 
     Actively supported hwdecs:
 
-    :d3d11va:   requires ``--vo=gpu`` with ``--gpu-context=d3d11`` or
+    :d3d11va:   requires ``--vo=gpu`` or ``--vo=gpu-next`` with ``--gpu-context=d3d11`` or
                 ``--gpu-context=angle`` (Windows 8+ only)
     :d3d11va-copy: copies video back to system RAM (Windows 8+ only)
-    :videotoolbox: requires ``--vo=gpu`` (macOS 10.8 and up),
+    :videotoolbox: requires ``--vo=gpu`` or ``--vo=gpu-next`` (macOS only),
                    or ``--vo=libmpv`` (iOS 9.0 and up)
-    :videotoolbox-copy: copies video back into system RAM (macOS 10.8 or iOS 9.0 and up)
-    :vaapi:     requires ``--vo=gpu``, ``--vo=vaapi`` or ``--vo=dmabuf-wayland`` (Linux only)
+    :videotoolbox-copy: copies video back into system RAM (macOS 10.15 or iOS 9.0 and up)
+    :vaapi:     requires ``--vo=gpu``, ``--vo=gpu-next``, ``--vo=vaapi`` or ``--vo=dmabuf-wayland`` (Linux only)
     :vaapi-copy: copies video back into system RAM (Linux with some GPUs or Windows)
-    :nvdec:     requires ``--vo=gpu`` (Any platform CUDA is available)
+    :nvdec:     requires ``--vo=gpu`` or ``--vo=gpu-next`` (Any platform CUDA is available)
     :nvdec-copy: copies video back to system RAM (Any platform CUDA is available)
-    :drm:       requires ``--vo=gpu`` (Linux only)
+    :drm:       requires ``--vo=gpu`` or ``--vo=gpu-next`` (Linux only)
     :drm-copy:   copies video back to system RAM (Linux only)
     :vulkan:    requires ``--vo=gpu-next`` (Any platform with Vulkan Video Decoding)
     :vulkan-copy: copies video back to system RAM (Any platform with Vulkan Video Decoding)
@@ -1723,7 +1720,7 @@ Video
     Whether to behave as if ``--video-align-x`` and ``--video-align-y`` were 0
     when the video becomes smaller than the window in the respective direction
 
-    After zooming in until the video is bigger the window, panning with
+    After zooming in until the video is bigger than the window, panning with
     `--video-align-x` and/or `--video-align-y`, and zooming out until the video
     is smaller than the window, this is useful to recenter the video in the
     window.
@@ -2386,6 +2383,14 @@ Audio
     The application name the player reports to the audio API. Can be useful
     if you want to force a different audio profile (e.g. with PulseAudio),
     or to set your own application name when using libmpv.
+
+``--audio-set-media-role=<yes|no>``
+    If enabled, mpv will set the appropriate media role on supported audio
+    servers to indicate whether mpv is playing a video or an audio-only file.
+    This is disabled by default since per media role volumes have often caused
+    unexpected and confusing behavior.
+
+    Default: no.
 
 ``--audio-buffer=<seconds>``
     Set the audio output minimum buffer. The audio device might actually create
@@ -3129,6 +3134,16 @@ Subtitles
 
     Default: 34
 
+``--sub-margin-y-offset=<size>``
+    Additional vertical offset added to the subtitle margin, in scaled pixels.
+    This is added on top of ``--sub-margin-y``.
+
+    This is intended for dynamic margin adjustments at runtime (e.g. by
+    scripts like the OSC to avoid subtitle/UI overlap). For persistent
+    settings, use ``--sub-margin-y`` instead.
+
+    Default: 0
+
 ``--sub-align-x=<left|center|right>``
     Control to which corner of the screen text subtitles should be
     aligned to (default: ``center``).
@@ -3144,8 +3159,6 @@ Subtitles
     Control how multi line subs are justified irrespective of where they
     are aligned (default: ``auto`` which justifies as defined by
     ``--sub-align-x``).
-    Left justification is recommended to make the subs easier to read
-    as it is easier for the eyes.
 
 ``--sub-ass-justify=<yes|no>``
     Applies justification as defined by ``--sub-justify`` on ASS subtitles
@@ -3403,6 +3416,9 @@ Window
     and no audio. The player may recognize certain non-images as images, for
     example if ``--length`` is used to reduce the length to 1 frame, or if
     you seek to the last frame.
+
+    The effective duration is now `--speed` aware, which was not the case in
+    older mpv versions before v0.41.0.
 
     This option does not affect the framerate used for ``mf://`` or
     ``--merge-files``. For that, use ``--mf-fps`` instead.
@@ -3671,7 +3687,7 @@ Window
 ``--force-window-position``
     Forcefully move mpv's video output window to default location whenever
     there is a change in video parameters, video stream or file. This used to
-    be the default behavior. Currently only affects X11, macvk and SDL VOs.
+    be the default behavior. Currently only affects Windows, X11, macvk and SDL VOs.
 
 ``--auto-window-resize=<yes|no>``
     By default, mpv will automatically resize itself if the video's size changes
@@ -4810,6 +4826,16 @@ OSD
 
     Default: 16
 
+``--osd-margin-y-offset=<size>``
+    Additional vertical offset added to the OSD margin, in scaled pixels.
+    This is added on top of ``--osd-margin-y``.
+
+    This is intended for dynamic margin adjustments at runtime (e.g. by
+    scripts like the OSC to avoid OSD/UI overlap). For persistent settings,
+    use ``--osd-margin-y`` instead.
+
+    Default: 0
+
 ``--osd-align-x=<left|center|right>``
     Control to which corner of the screen OSD should be
     aligned to (default: ``left``).
@@ -5180,7 +5206,7 @@ Software Scaler
         a and b are the bicubic b and c parameters.
 
 ``--zimg-scaler-chroma=...``
-    Same as ``--zimg-scaler``, for for chroma interpolation (default: bilinear).
+    Same as ``--zimg-scaler``, for chroma interpolation (default: bilinear).
 
 ``--zimg-scaler-chroma-param-a``, ``--zimg-scaler-chroma-param-b``
     Same as ``--zimg-scaler-param-a`` / ``--zimg-scaler-param-b``, for chroma.
@@ -5862,12 +5888,15 @@ them.
     being increased a bit).
 
 ``--scale-antiring=<value>``, ``--cscale-antiring=<value>``, ``--dscale-antiring=<value>``, ``--tscale-antiring=<value>``
-    Set the antiringing strength. This tries to eliminate ringing, but can
-    introduce other artifacts in the process. Must be a float number between
-    0.0 and 1.0. The default value of 0.0 disables antiringing entirely.
+    Set the antiringing strength. This option tries to eliminate ringing, but can
+    introduce other artifacts in the process. The value must be a floating-point
+    number between 0.0 and 1.0.
+
+    The default is 0.0. The ``high-quality`` profile sets this to 0.6, which is
+    a fairly conservative value and should subtly enhance image quality.
 
     Note that this doesn't affect the special filters ``bilinear`` and
-    ``bicubic_fast``, nor does it affect any polar (EWA) scalers.
+    ``bicubic_fast``, nor does it affect any polar (EWA) scalers with vo_gpu.
 
     On ``--vo=gpu-next``, this also affects polar (EWA) scalers. Certain
     filter aliases may also implicitly enable antiringing, regardless of this
@@ -6008,7 +6037,7 @@ them.
     auto
         Automatic selection.
         On ``--vo=gpu``: detected depth or 8 bpc otherwise
-        On ``--vo=gpu-next``: detected depth or 8 bpc (for SDR target)
+        On ``--vo=gpu-next``: detected depth
     8
         Dither to 8 bit output.
 
@@ -6108,10 +6137,6 @@ them.
         You can manually set this option
         according to the bit depth of your display.
         This option also affects the auto-detection of ``--dither-depth``.
-
-    .. note::
-
-        Unlike  ``--d3d11-output-format``, this option also takes effect with ``--vo=gpu-next``.
 
 ``--vulkan-device=<device name|UUID>``
     The name or UUID of the Vulkan device to use for rendering and presentation. Use
@@ -6247,6 +6272,11 @@ them.
 
         For ``--vo=gpu-next``, this is used as a best-effort hint and
         libplacebo has the last say on which format is utilized.
+
+    .. note::
+
+        For ``--vo=gpu-next``, ``rgba16f`` enables scRGB output. Alternatively,
+        ``--target-trc=scrgb`` can be used to request scRGB output.
 
 ``--d3d11-output-csp=<auto|srgb|linear|pq|bt.2020>``
     Select a specific D3D11 output color space to utilize for D3D11 rendering.
@@ -6820,18 +6850,15 @@ them.
     ``<appearance>`` can be one of the following:
 
     :auto:                     Detects the system settings and sets the title
-                               bar appearance appropriately. On macOS 10.14 it
-                               also detects run time changes.
+                               bar appearance appropriately.
     :aqua:                     The standard macOS Light appearance.
-    :darkAqua:                 The standard macOS Dark appearance. (macOS 10.14+)
-    :vibrantLight:             Light vibrancy appearance with.
-    :vibrantDark:              Dark vibrancy appearance with.
-    :aquaHighContrast:         Light Accessibility appearance. (macOS 10.14+)
-    :darkAquaHighContrast:     Dark Accessibility appearance. (macOS 10.14+)
+    :darkAqua:                 The standard macOS Dark appearance.
+    :vibrantLight:             Light vibrancy appearance.
+    :vibrantDark:              Dark vibrancy appearance.
+    :aquaHighContrast:         Light Accessibility appearance.
+    :darkAquaHighContrast:     Dark Accessibility appearance.
     :vibrantLightHighContrast: Light vibrancy Accessibility appearance.
-                               (macOS 10.14+)
     :vibrantDarkHighContrast:  Dark vibrancy Accessibility appearance.
-                               (macOS 10.14+)
 
 ``--macos-title-bar-material=<material>``
     Sets the material of the title bar (default: titlebar). All deprecated
@@ -6846,32 +6873,26 @@ them.
 
     :titlebar:              The standard macOS title bar material.
     :selection:             The standard macOS selection material.
-    :menu:                  The standard macOS menu material. (macOS 10.11+)
-    :popover:               The standard macOS popover material. (macOS 10.11+)
-    :sidebar:               The standard macOS sidebar material. (macOS 10.11+)
+    :menu:                  The standard macOS menu material.
+    :popover:               The standard macOS popover material.
+    :sidebar:               The standard macOS sidebar material.
     :headerView:            The standard macOS header view material.
-                            (macOS 10.14+)
-    :sheet:                 The standard macOS sheet material. (macOS 10.14+)
+    :sheet:                 The standard macOS sheet material.
     :windowBackground:      The standard macOS window background material.
-                            (macOS 10.14+)
-    :hudWindow:             The standard macOS hudWindow material. (macOS 10.14+)
+    :hudWindow:             The standard macOS hudWindow material.
     :fullScreen:            The standard macOS full screen material.
-                            (macOS 10.14+)
-    :toolTip:               The standard macOS tool tip material. (macOS 10.14+)
+    :toolTip:               The standard macOS tool tip material.
     :contentBackground:     The standard macOS content background material.
-                            (macOS 10.14+)
     :underWindowBackground: The standard macOS under window background material.
-                            (macOS 10.14+)
     :underPageBackground:   The standard macOS under page background material.
                             (deprecated in macOS 10.14+)
     :dark:                  The standard macOS dark material.
                             (deprecated in macOS 10.14+)
     :light:                 The standard macOS light material.
-                            (macOS 10.14+)
     :mediumLight:           The standard macOS mediumLight material.
-                            (macOS 10.11+, deprecated in macOS 10.14+)
+                            (deprecated in macOS 10.14+)
     :ultraDark:             The standard macOS ultraDark material.
-                            (macOS 10.11+ deprecated in macOS 10.14+)
+                            (deprecated in macOS 10.14+)
 
 ``--macos-title-bar-color=<color>``
     Sets the color of the title bar (default: completely transparent). Is
@@ -7269,6 +7290,12 @@ them.
         Sony S-Log1 curve
     s-log2
         Sony S-Log2 curve
+    scrgb
+        scRGB, extended linear light transfer. Supports both HDR
+        and wide color gamut content. The output gamut defaults to BT.709
+        unless display primaries are reported by the system. You can also use
+        ``--target-gamut`` to manually specify a wider gamut.
+        (``--vo=gpu-next`` only)
 
     .. note::
 
@@ -7969,7 +7996,7 @@ Video Sync
 ``--video-sync-max-video-change=<value>``
     Maximum speed difference in percent that is applied to video with
     ``--video-sync=display-...`` (default: 1). Display sync mode will be
-    disabled if the monitor and video refresh way do not match within the
+    disabled if the monitor and video refresh rate do not match within the
     given range. It tries multiples as well: playing 30 fps video on a 60 Hz
     screen will duplicate every second frame. Playing 24 fps video on a 60 Hz
     screen will play video in a 2-3-2-3-... pattern.
