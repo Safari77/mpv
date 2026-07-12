@@ -269,6 +269,7 @@ typedef struct MPContext {
     char *term_osd_title;
     char *last_window_title;
     struct voctrl_playback_state vo_playback_state;
+    int64_t vo_playback_state_time;
 
     int add_osd_seek_info; // bitfield of enum mp_osd_seek_info
     double osd_visible; // for the osd bar only
@@ -567,6 +568,7 @@ struct track *select_default_track(struct MPContext *mpctx, int order,
                                    enum stream_type type);
 void prefetch_next(struct MPContext *mpctx);
 void update_lavfi_complex(struct MPContext *mpctx);
+void update_vo_chain_el_pair(struct MPContext *mpctx);
 
 // main.c
 int mp_initialize(struct MPContext *mpctx, char **argv);
